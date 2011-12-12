@@ -70,8 +70,8 @@ breed_vector({Parent1, Parent2}, S1, S2) ->
   zip(L1, L2).
 
 % Function returning true with probability of 1/2^N
-probability(0) -> true;
-probability(N) ->
+probability(1) -> true;
+probability(N) when N > 1 ->
   R1 = random:uniform(),
   R2 = random:uniform(),
   case R1 =< R2 of
