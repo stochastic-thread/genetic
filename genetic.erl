@@ -1,8 +1,8 @@
 -module(genetic).
 -author("Mateusz Lenik").
 -import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, foldl/3, zip/2]).
--export([inverse_fitness/1, mutate/1, breed/2]).
--export([breed/4, probability/1]).
+-export([inverse_fitness/1, mutate/2, breed/2]).
+-export([breed/4, probability/1, spawn_population/2]).
 
 % main() ->
 % % Read data in
@@ -56,14 +56,14 @@ breed(Parents = {P1, P2}, S1, S2, P) ->
   V = breed_vector(Parents, S1, S2),
   C1 = map(fun(X) -> foldl(fun breed_swap/2, X, V) end, P1),
   C2 = map(fun(X) -> foldl(fun breed_swap/2, X, V) end, P2),
-  {mutate(C1, P), mutate(C2)}.
+  {mutate(C1, P), mutate(C2, P)}.
 
-% Gene swapping used in PMX crossover
+% Gene swapping function used in PMX crossover
 breed_swap({Gene, NewGene}, Gene) -> NewGene;
 breed_swap({Gene, NewGene}, NewGene) -> Gene;
 breed_swap({_, _}, Gene) -> Gene.
 
-% computes swapping vector for breeding
+% Computes swapping vector for breeding
 breed_vector({Parent1, Parent2}, S1, S2) ->
   L1 = sublist(Parent1, S1, S2 - S1),
   L2 = sublist(Parent2, S1, S2 - S1),
@@ -79,11 +79,19 @@ probability(N) when N > 1 ->
     false -> false
   end.
 
-% evolve(Population = [H|_], TimeLeft, ProbabilityOfMutation) ->
-% evolve(Population, TimeLeft, ProbabilityOfMutation, H).
+% Function generating base population
+spawn_population(Tasks, N) -> spawn_population(Tasks, N, []).
+spawn_population(_, 0, Acc) -> Acc;
+spawn_population(Tasks, N, Acc) ->
+  Permutation = keysort(2, [{X, random:uniform()} || X <- Tasks]),
+  New = map(fun({X,_}) -> X end, Permutation),
+  spawn_population(Tasks, N - 1, [New|Acc]).
+
+% evolve(Population = [H|_], TimeLeft, Pmutation, Pmeeting) ->
+% evolve(Population, TimeLeft, Pmutation, Pmeeting, H).
 
 % evolve(_, 0, _, Best) -> Best;
-% evolve(Population, TimeLeft, ProbabilityOfMutation, Best) ->
+% evolve(Population, TimeLeft, Pmutation, Pmeeting, Best) ->
 % List = keysort(2, [{X, inverse_fitness(X)} || X <- Population]),
 % {Good, Bad} = split(
 
