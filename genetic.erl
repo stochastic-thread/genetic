@@ -1,24 +1,37 @@
 -module(genetic).
 -author("Mateusz Lenik").
--import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, foldl/3, zip/2]).
--export([inverse_fitness/1, mutate/2, breed/2]).
+-import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, foldl/3, zip/2, zip3/3]).
+-export([main/1, inverse_fitness/1, mutate/2, breed/2]).
 -export([breed/4, probability/1, spawn_population/2]).
 
-% main() ->
-% % Read data in
-% Data =
+-define(INSTANCE_COUNT, 125).
+-define(VARIABLE_COUNT, 3).
 
-% % Spawn initial population
-% Population = spawn_population(Data, 100),
-% Best = evolve(Population, 100000, 5),
-% io:format("Best solution is ~p~n", [Best]).
+main([FileName]) ->
+  % Read data in
+  {ok, Bin} = file:read_file(FileName),
+  Instances = parse_instances(Bin).
+  % io:format("Instances: ~p~n", [Instances]).
+  % erlang:halt(0).
+
+% Function parses input data
+parse_instances(Bin) ->
+  Data = [list_to_integer(X) || X <- string:tokens(binary_to_list(Bin), "\r\n\t ")],
+  InstanceSize = length(Data) div (?INSTANCE_COUNT * ?VARIABLE_COUNT),
+  parse_instances(InstanceSize, Data, ?INSTANCE_COUNT, []).
+
+parse_instances(_, _, 0, Acc) -> reverse(Acc);
+parse_instances(InstanceSize, Data, N, Acc) ->
+  {Instance, Rest} = split(3*InstanceSize, Data),
+  {Pj, Other} = split(InstanceSize, Instance),
+  {Wj, Dj} = split(InstanceSize, Other),
+  parse_instances(InstanceSize, Rest, N - 1, [zip3(Pj,Wj,Dj)|Acc]).
 
 % Computes the value of target function
-% {TaskNo, TaskLen, TaskWeight, TaskDueDate}
-%
+% {TaskLen, TaskWeight, TaskDueDate}
 inverse_fitness(Permutation) -> inverse_fitness(Permutation, 0, 0).
 inverse_fitness([], _, Acc) -> Acc;
-inverse_fitness([{_, Pj, Wj, Dj}|Rest], Time, Acc) ->
+inverse_fitness([{Pj, Wj, Dj}|Rest], Time, Acc) ->
   inverse_fitness(Rest, Time + Pj, Wj*max(0, Time + Pj - Dj) + Acc).
 
 % Mutation procedure
@@ -40,7 +53,7 @@ mutate(Permutation) ->
 mutate(Permutation, S1, S2) ->
   {Head, Tail} = split(S1, Permutation),
   {Middle, End} = split(S2 - S1, Tail),
-  Head ++ reverse(Middle) ++ End.
+  [Head|[reverse(Middle)|End]].
 
 % Breeding algorithm
 % Implemented using PMX crossover
@@ -70,8 +83,8 @@ breed_vector({Parent1, Parent2}, S1, S2) ->
   zip(L1, L2).
 
 % Function returning true with probability of 1/2^N
-probability(1) -> true;
-probability(N) when N > 1 ->
+probability(0) -> true;
+probability(N) when N >= 1 ->
   R1 = random:uniform(),
   R2 = random:uniform(),
   case R1 =< R2 of
