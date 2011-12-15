@@ -1,38 +1,59 @@
 -module(genetic).
 -author("Mateusz Lenik").
--import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, foldl/3, zip/2, zip3/3]).
--export([main/1, inverse_fitness/1, mutate/2, breed/2]).
--export([breed/4, probability/1, spawn_population/2]).
+-import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, foldl/3]).
+-export([main/1, main/0]).
 
 -define(INSTANCE_COUNT, 125).
 -define(VARIABLE_COUNT, 3).
 
-main([FileName]) ->
-  % Read data in
+main() ->
+  io:put_chars("Args: FILENAME [BASE [TIME [MUTABILITY]]]\n"),
+  erlang:halt(0).
+main([FileName]) -> main([FileName, 50]);
+main([FileName, Base]) -> main([FileName, Base, 1000]);
+main([FileName, Base, Time]) -> main([FileName, Base, Time, 5]);
+main([FileName, Base, Time, Mutability]) ->
   {ok, Bin} = file:read_file(FileName),
-  Instances = parse_instances(Bin).
-  % io:format("Instances: ~p~n", [Instances]).
-  % erlang:halt(0).
+  Instances = parse_instances(Bin),
+  lists:foreach(fun(I) -> new_world(I, Base, Time, Mutability) end, Instances),
+  erlang:halt(0).
+
+% Creates new world and starts genetic algorithm
+new_world(Instance, Base, Time, Mutability) ->
+  Population = spawn_population(Instance, Base),
+  Best = evolve(Population, Time, Mutability),
+  io:format("Best result is ~p.~n", [inverse_fitness(Best)]).
 
 % Function parses input data
 parse_instances(Bin) ->
-  Data = [list_to_integer(X) || X <- string:tokens(binary_to_list(Bin), "\r\n\t ")],
+  Data = parse_string(Bin),
   InstanceSize = length(Data) div (?INSTANCE_COUNT * ?VARIABLE_COUNT),
   parse_instances(InstanceSize, Data, ?INSTANCE_COUNT, []).
 
 parse_instances(_, _, 0, Acc) -> reverse(Acc);
 parse_instances(InstanceSize, Data, N, Acc) ->
-  {Instance, Rest} = split(3*InstanceSize, Data),
+  {Instance, Rest} = split(?VARIABLE_COUNT*InstanceSize, Data),
   {Pj, Other} = split(InstanceSize, Instance),
   {Wj, Dj} = split(InstanceSize, Other),
-  parse_instances(InstanceSize, Rest, N - 1, [zip3(Pj,Wj,Dj)|Acc]).
+  parse_instances(InstanceSize, Rest, N - 1, [lists:zip3(Pj,Wj,Dj)|Acc]).
+
+% Parses binary string to list of integers
+parse_string(Bin) when is_binary(Bin) -> parse_string(binary_to_list(Bin));
+parse_string(Str) when is_list(Str) ->
+  [list_to_integer(X) || X <- string:tokens(Str, "\r\n\t ")].
 
 % Computes the value of target function
 % {TaskLen, TaskWeight, TaskDueDate}
-inverse_fitness(Permutation) -> inverse_fitness(Permutation, 0, 0).
+inverse_fitness(Permutation) ->
+  inverse_fitness(Permutation, 0, 0).
 inverse_fitness([], _, Acc) -> Acc;
 inverse_fitness([{Pj, Wj, Dj}|Rest], Time, Acc) ->
   inverse_fitness(Rest, Time + Pj, Wj*max(0, Time + Pj - Dj) + Acc).
+
+% Sorts the list by inverse_fitness
+sort_by_fitness(Population) ->
+  Sorted = keysort(2, [{X, inverse_fitness(X)} || X <- Population]),
+  [X || {X,_} <- Sorted].
 
 % Mutation procedure
 % Implemented using sequence swap
@@ -53,7 +74,7 @@ mutate(Permutation) ->
 mutate(Permutation, S1, S2) ->
   {Head, Tail} = split(S1, Permutation),
   {Middle, End} = split(S2 - S1, Tail),
-  [Head|[reverse(Middle)|End]].
+  Head ++ reverse(Middle) ++ End.
 
 % Breeding algorithm
 % Implemented using PMX crossover
@@ -80,7 +101,7 @@ breed_swap({_, _}, Gene) -> Gene.
 breed_vector({Parent1, Parent2}, S1, S2) ->
   L1 = sublist(Parent1, S1, S2 - S1),
   L2 = sublist(Parent2, S1, S2 - S1),
-  zip(L1, L2).
+  lists:zip(L1, L2).
 
 % Function returning true with probability of 1/2^N
 probability(0) -> true;
@@ -97,14 +118,28 @@ spawn_population(Tasks, N) -> spawn_population(Tasks, N, []).
 spawn_population(_, 0, Acc) -> Acc;
 spawn_population(Tasks, N, Acc) ->
   Permutation = keysort(2, [{X, random:uniform()} || X <- Tasks]),
-  New = map(fun({X,_}) -> X end, Permutation),
+  New = [X || {X,_} <- Permutation],
   spawn_population(Tasks, N - 1, [New|Acc]).
 
-% evolve(Population = [H|_], TimeLeft, Pmutation, Pmeeting) ->
-% evolve(Population, TimeLeft, Pmutation, Pmeeting, H).
+% Genetic algorithm itself
+evolve(Population, TimeLeft, Pmutation) ->
+  Sorted = sort_by_fitness(Population),
+  evolve(Sorted, TimeLeft, Pmutation, hd(Sorted)).
 
-% evolve(_, 0, _, Best) -> Best;
-% evolve(Population, TimeLeft, Pmutation, Pmeeting, Best) ->
-% List = keysort(2, [{X, inverse_fitness(X)} || X <- Population]),
-% {Good, Bad} = split(
+evolve(_, 0, _, Best) -> Best;
+evolve(Population, TimeLeft, Pmutation, _) ->
+  {Good, Bad} = split(length(Population) div 2, Population),
+  % NewGood = Good,
+  NewGood = reproduce(Good, Pmutation),
+  Sorted = sort_by_fitness(NewGood ++ Bad),
+  evolve(Sorted, TimeLeft - 1, Pmutation, hd(Sorted)).
+
+% Function defining reproduction cycle
+reproduce(Generation, P) -> reproduce(Generation, [], P).
+reproduce([], NewGeneration, _) -> NewGeneration;
+reproduce([P1, P2|Rest], NewGeneration, P) ->
+  {C1, C2} = breed({P1, P2}, P),
+  reproduce(Rest, [C1, C2|NewGeneration], P);
+reproduce([Last], NewGeneration, P) ->
+  reproduce([], [Last|NewGeneration], P).
 
