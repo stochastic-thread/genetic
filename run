@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ ! -e genetic.beam ]; then
+  erlc genetic.erl
+fi
+
+erl -noshell -run genetic main $@
+
