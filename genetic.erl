@@ -7,14 +7,17 @@
 -define(VARIABLE_COUNT, 3).
 
 main() ->
-  io:put_chars("Args: FILENAME [BASE [TIME [MUTABILITY]]]\n"),
+  io:put_chars("Args: FILENAME [BASE_SIZE [TIME_LEFT [MUTABILITY]]]\n"),
   erlang:halt(0).
 main([FileName]) -> main([FileName, 50]);
 main([FileName, Base]) -> main([FileName, Base, 1000]);
 main([FileName, Base, Time]) -> main([FileName, Base, Time, 5]);
-main([FileName, Base, Time, Mutability]) ->
+main([FileName, BaseS, TimeS, MutabilityS]) ->
   {ok, Bin} = file:read_file(FileName),
   Instances = parse_instances(Bin),
+  Base = parse_number(BaseS),
+  Time = parse_number(TimeS),
+  Mutability = parse_number(MutabilityS),
   lists:foreach(fun(I) -> new_world(I, Base, Time, Mutability) end, Instances),
   erlang:halt(0).
 
@@ -41,6 +44,11 @@ parse_instances(InstanceSize, Data, N, Acc) ->
 parse_string(Bin) when is_binary(Bin) -> parse_string(binary_to_list(Bin));
 parse_string(Str) when is_list(Str) ->
   [list_to_integer(X) || X <- string:tokens(Str, "\r\n\t ")].
+
+% Argument parsing function
+parse_number(Int) when is_integer(Int) -> Int;
+parse_number(Str) when is_list(Str) -> parse_number(list_to_integer(Str));
+parse_number(Bin) when is_binary(Bin) -> parse_number(binary_to_list(Bin)).
 
 % Computes the value of target function
 % {TaskLen, TaskWeight, TaskDueDate}
