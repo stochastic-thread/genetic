@@ -1,6 +1,6 @@
 -module(genetic).
 -author("Mateusz Lenik").
--import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, foldl/3]).
+-import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, sublist/2, foldl/3]).
 -export([main/1, main/0]).
 
 -define(INSTANCE_COUNT, 125).
@@ -13,6 +13,7 @@ main([FileName]) -> main([FileName, 50]);
 main([FileName, Base]) -> main([FileName, Base, 1000]);
 main([FileName, Base, Time]) -> main([FileName, Base, Time, 5]);
 main([FileName, BaseS, TimeS, MutabilityS]) ->
+  random:seed(now()),
   {ok, Bin} = file:read_file(FileName),
   Instances = parse_instances(Bin),
   Base = parse_number(BaseS),
@@ -136,10 +137,10 @@ evolve(Population, TimeLeft, Pmutation) ->
 
 evolve(_, 0, _, Best) -> Best;
 evolve(Population, TimeLeft, Pmutation, _) ->
-  {Good, Bad} = split(length(Population) div 2, Population),
-  % NewGood = Good,
+  Length = length(Population) div 3,
+  {Good, Bad} = split(Length, Population),
   NewGood = reproduce(Good, Pmutation),
-  Sorted = sort_by_fitness(NewGood ++ Bad),
+  Sorted = sort_by_fitness(NewGood ++ Good ++ sublist(Bad, Length)),
   evolve(Sorted, TimeLeft - 1, Pmutation, hd(Sorted)).
 
 % Function defining reproduction cycle
