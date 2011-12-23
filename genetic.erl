@@ -18,6 +18,7 @@ main([File, BestFile, BaseS, TimeS, MutabilityS]) ->
   Base = parse_number(BaseS),
   Time = parse_number(TimeS),
   Mutability = parse_number(MutabilityS),
+  io:format("| Found | Best  | Time  |~n"),
   lists:foreach(fun({Best,I}) -> new_world(I, Base, Time, Mutability, Best) end, Instances),
   erlang:halt(0).
 
@@ -30,8 +31,8 @@ debug(FileName, Base, Time, Mutability) ->
 new_world(Instance, Base, Time, Mutability, Best) ->
   Population = spawn_population(Instance, Base),
   {BestSolution, TimeLeft} = evolve(Population, Time, Mutability, Best),
-  io:format("Found result is ~p, optimal is ~p, ~p generations left.~n",
-    [inverse_fitness(BestSolution), Best, TimeLeft]),
+  io:format("|~p\t|~p\t|~p\t|~n",
+    [inverse_fitness(BestSolution), Best, Time - TimeLeft]),
   Best.
 
 % Function reading input files
