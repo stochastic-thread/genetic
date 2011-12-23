@@ -1,7 +1,7 @@
 -module(genetic).
 -author("Mateusz Lenik").
 -import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, sublist/2, foldl/3]).
--export([main/1, main/0]).
+-export([main/1, main/0, debug/4]).
 
 -define(INSTANCE_COUNT, 125).
 -define(VARIABLE_COUNT, 3).
@@ -14,19 +14,29 @@ main([FileName, Base]) -> main([FileName, Base, 1000]);
 main([FileName, Base, Time]) -> main([FileName, Base, Time, 5]);
 main([FileName, BaseS, TimeS, MutabilityS]) ->
   random:seed(now()),
-  {ok, Bin} = file:read_file(FileName),
-  Instances = parse_instances(Bin),
+  Instances = read_instances(FileName),
   Base = parse_number(BaseS),
   Time = parse_number(TimeS),
   Mutability = parse_number(MutabilityS),
   lists:foreach(fun(I) -> new_world(I, Base, Time, Mutability) end, Instances),
   erlang:halt(0).
 
+% Function for performance testing
+debug(FileName, Base, Time, Mutability) ->
+  Instances = read_instances(FileName),
+  new_world(hd(Instances), Base, Time, Mutability).
+
 % Creates new world and starts genetic algorithm
 new_world(Instance, Base, Time, Mutability) ->
   Population = spawn_population(Instance, Base),
   Best = evolve(Population, Time, Mutability),
-  io:format("Best result is ~p.~n", [inverse_fitness(Best)]).
+  io:format("Best result is ~p.~n", [inverse_fitness(Best)]),
+  Best.
+
+% Function reading input files
+read_instances(FileName) ->
+  {ok, Bin} = file:read_file(FileName),
+  parse_instances(Bin).
 
 % Function parses input data
 parse_instances(Bin) ->
