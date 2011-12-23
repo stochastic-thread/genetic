@@ -1,42 +1,47 @@
 -module(genetic).
 -author("Mateusz Lenik").
 -import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, sublist/2, foldl/3]).
--export([main/1, main/0, debug/4]).
+-export([main/1, main/0, debug/4, read_best/1, read_instances/1]).
 
 -define(INSTANCE_COUNT, 125).
 -define(VARIABLE_COUNT, 3).
 
 main() ->
-  io:put_chars("Args: FILENAME [BASE_SIZE [TIME_LEFT [MUTABILITY]]]\n"),
+  io:put_chars("Args: FILE BEST_FILE [BASE_SIZE [TIME_LEFT [MUTABILITY]]]\n"),
   erlang:halt(0).
-main([FileName]) -> main([FileName, 50]);
-main([FileName, Base]) -> main([FileName, Base, 1000]);
-main([FileName, Base, Time]) -> main([FileName, Base, Time, 5]);
-main([FileName, BaseS, TimeS, MutabilityS]) ->
+main([File, BestFile]) -> main([File, BestFile, 50]);
+main([File, BestFile, Base]) -> main([File, BestFile, Base, 1000]);
+main([File, BestFile, Base, Time]) -> main([File, BestFile, Base, Time, 5]);
+main([File, BestFile, BaseS, TimeS, MutabilityS]) ->
   random:seed(now()),
-  Instances = read_instances(FileName),
+  Instances = lists:zip(read_best(BestFile), read_instances(File)),
   Base = parse_number(BaseS),
   Time = parse_number(TimeS),
   Mutability = parse_number(MutabilityS),
-  lists:foreach(fun(I) -> new_world(I, Base, Time, Mutability) end, Instances),
+  lists:foreach(fun({Best,I}) -> new_world(I, Base, Time, Mutability, Best) end, Instances),
   erlang:halt(0).
 
 % Function for performance testing
 debug(FileName, Base, Time, Mutability) ->
   Instances = read_instances(FileName),
-  new_world(hd(Instances), Base, Time, Mutability).
+  new_world(hd(Instances), Base, Time, Mutability, 0).
 
 % Creates new world and starts genetic algorithm
-new_world(Instance, Base, Time, Mutability) ->
+new_world(Instance, Base, Time, Mutability, Best) ->
   Population = spawn_population(Instance, Base),
-  Best = evolve(Population, Time, Mutability),
-  io:format("Best result is ~p.~n", [inverse_fitness(Best)]),
+  {BestSolution, TimeLeft} = evolve(Population, Time, Mutability, Best),
+  io:format("Found result is ~p, optimal is ~p, ~p generations left.~n",
+    [inverse_fitness(BestSolution), Best, TimeLeft]),
   Best.
 
 % Function reading input files
 read_instances(FileName) ->
   {ok, Bin} = file:read_file(FileName),
   parse_instances(Bin).
+
+read_best(FileName) ->
+  {ok, Bin} = file:read_file(FileName),
+  parse_string(Bin).
 
 % Function parses input data
 parse_instances(Bin) ->
@@ -141,17 +146,22 @@ spawn_population(Tasks, N, Acc) ->
   spawn_population(Tasks, N - 1, [New|Acc]).
 
 % Genetic algorithm itself
-evolve(Population, TimeLeft, Pmutation) ->
+evolve(Population, TimeLeft, Pmutation, Best) ->
   Sorted = sort_by_fitness(Population),
-  evolve(Sorted, TimeLeft, Pmutation, hd(Sorted)).
+  evolve(Sorted, TimeLeft, Pmutation, hd(Sorted), Best).
 
-evolve(_, 0, _, Best) -> Best;
-evolve(Population, TimeLeft, Pmutation, _) ->
+evolve(_, 0, _, BestSolution, _) -> {BestSolution, 0};
+evolve(Population, TimeLeft, Pmutation, _, Best) ->
   Length = length(Population) div 3,
   {Good, Bad} = split(Length, Population),
   NewGood = reproduce(Good, Pmutation),
   Sorted = sort_by_fitness(NewGood ++ Good ++ sublist(Bad, Length)),
-  evolve(Sorted, TimeLeft - 1, Pmutation, hd(Sorted)).
+  BestSolution = hd(Sorted),
+  case inverse_fitness(BestSolution) =< Best of
+    false -> evolve(Sorted, TimeLeft - 1, Pmutation, BestSolution, Best);
+    true  -> {BestSolution, TimeLeft}
+  end.
+
 
 % Function defining reproduction cycle
 reproduce(Generation, P) -> reproduce(Generation, [], P).
