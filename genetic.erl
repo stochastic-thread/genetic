@@ -1,7 +1,7 @@
 -module(genetic).
 -author("Mateusz Lenik").
--import(lists, [keysort/2, split/2, map/2, reverse/1, sublist/3, sublist/2, foldl/3]).
--export([main/1, main/0, debug/4, read_best/1, read_instances/1]).
+-export([main/1, main/0, debug/4, inverse_fitness/1, read_instances/1,
+    read_best/1, sort_by_fitness/1, spawn_population/2]).
 
 -define(INSTANCE_COUNT, 125).
 -define(VARIABLE_COUNT, 3).
@@ -50,11 +50,11 @@ parse_instances(Bin) ->
   InstanceSize = length(Data) div (?INSTANCE_COUNT * ?VARIABLE_COUNT),
   parse_instances(InstanceSize, Data, ?INSTANCE_COUNT, []).
 
-parse_instances(_, _, 0, Acc) -> reverse(Acc);
+parse_instances(_, _, 0, Acc) -> lists:reverse(Acc);
 parse_instances(InstanceSize, Data, N, Acc) ->
-  {Instance, Rest} = split(?VARIABLE_COUNT*InstanceSize, Data),
-  {Pj, Other} = split(InstanceSize, Instance),
-  {Wj, Dj} = split(InstanceSize, Other),
+  {Instance, Rest} = lists:split(?VARIABLE_COUNT*InstanceSize, Data),
+  {Pj, Other} = lists:split(InstanceSize, Instance),
+  {Wj, Dj} = lists:split(InstanceSize, Other),
   parse_instances(InstanceSize, Rest, N - 1, [lists:zip3(Pj,Wj,Dj)|Acc]).
 
 % Parses binary string to list of integers
@@ -68,17 +68,21 @@ parse_number(Str) when is_list(Str) -> parse_number(list_to_integer(Str));
 parse_number(Bin) when is_binary(Bin) -> parse_number(binary_to_list(Bin)).
 
 % Computes the value of target function
-% {TaskLen, TaskWeight, TaskDueDate}
 inverse_fitness(Permutation) ->
-  inverse_fitness(Permutation, 0, 0).
-inverse_fitness([], _, Acc) -> Acc;
-inverse_fitness([{Pj, Wj, Dj}|Rest], Time, Acc) ->
-  inverse_fitness(Rest, Time + Pj, Wj*max(0, Time + Pj - Dj) + Acc).
+  {_, Result} = lists:foldl(fun compute_inverse_fitness/2, {0, 0}, Permutation),
+  Result.
+
+compute_inverse_fitness({Pj, Wj, Dj}, {Time, Acc}) ->
+  {Time + Pj, Wj*max(0, Time + Pj - Dj) + Acc}.
+
 
 % Sorts the list by inverse_fitness
 sort_by_fitness(Population) ->
-  Sorted = keysort(2, [{X, inverse_fitness(X)} || X <- Population]),
-  [X || {X,_} <- Sorted].
+  lists:sort(fun sorting_function/2, Population).
+
+% Sorting procedure for sorting by fitness
+sorting_function(A, B) ->
+  inverse_fitness(A) =< inverse_fitness(B).
 
 % Mutation procedure
 % Implemented using sequence swap
@@ -97,9 +101,9 @@ mutate(Permutation) ->
   end.
 
 mutate(Permutation, S1, S2) ->
-  {Head, Tail} = split(S1, Permutation),
-  {Middle, End} = split(S2 - S1, Tail),
-  Head ++ reverse(Middle) ++ End.
+  {Head, Tail} = lists:split(S1, Permutation),
+  {Middle, End} = lists:split(S2 - S1, Tail),
+  Head ++ lists:reverse(Middle) ++ End.
 
 % Breeding algorithm
 % Implemented using PMX crossover
@@ -113,8 +117,8 @@ breed(Parents = {P1, P2}, ProbabilityOfMutation) ->
 
 breed(Parents = {P1, P2}, S1, S2, P) ->
   V = breed_vector(Parents, S1, S2),
-  C1 = map(fun(X) -> foldl(fun breed_swap/2, X, V) end, P1),
-  C2 = map(fun(X) -> foldl(fun breed_swap/2, X, V) end, P2),
+  C1 = lists:map(fun(X) -> lists:foldl(fun breed_swap/2, X, V) end, P1),
+  C2 = lists:map(fun(X) -> lists:foldl(fun breed_swap/2, X, V) end, P2),
   {mutate(C1, P), mutate(C2, P)}.
 
 % Gene swapping function used in PMX crossover
@@ -124,8 +128,8 @@ breed_swap({_, _}, Gene) -> Gene.
 
 % Computes swapping vector for breeding
 breed_vector({Parent1, Parent2}, S1, S2) ->
-  L1 = sublist(Parent1, S1, S2 - S1),
-  L2 = sublist(Parent2, S1, S2 - S1),
+  L1 = lists:sublist(Parent1, S1, S2 - S1),
+  L2 = lists:sublist(Parent2, S1, S2 - S1),
   lists:zip(L1, L2).
 
 % Function returning true with probability of 1/2^N
@@ -142,7 +146,7 @@ probability(N) when N >= 1 ->
 spawn_population(Tasks, N) -> spawn_population(Tasks, N, []).
 spawn_population(_, 0, Acc) -> Acc;
 spawn_population(Tasks, N, Acc) ->
-  Permutation = keysort(2, [{X, random:uniform()} || X <- Tasks]),
+  Permutation = lists:keysort(2, [{X, random:uniform()} || X <- Tasks]),
   New = [X || {X,_} <- Permutation],
   spawn_population(Tasks, N - 1, [New|Acc]).
 
@@ -154,9 +158,9 @@ evolve(Population, TimeLeft, Pmutation, Best) ->
 evolve(_, 0, _, BestSolution, _) -> {BestSolution, 0};
 evolve(Population, TimeLeft, Pmutation, _, Best) ->
   Length = length(Population) div 3,
-  {Good, Bad} = split(Length, Population),
+  {Good, Bad} = lists:split(Length, Population),
   NewGood = reproduce(Good, Pmutation),
-  Sorted = sort_by_fitness(NewGood ++ Good ++ sublist(Bad, Length)),
+  Sorted = sort_by_fitness(NewGood ++ Good ++ lists:sublist(Bad, Length)),
   BestSolution = hd(Sorted),
   case inverse_fitness(BestSolution) =< Best of
     false -> evolve(Sorted, TimeLeft - 1, Pmutation, BestSolution, Best);
