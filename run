@@ -4,5 +4,5 @@ if [ ! -e genetic.beam ]; then
   erlc genetic.erl
 fi
 
-erl -noshell -run genetic main $@
+erl -smp disable -noshell -run genetic main $@
 
