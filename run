@@ -1,8 +1,23 @@
-#!/bin/bash
+#!/usr/bin/env escript
+%%! -smp disable -sname run -mnesia
+-mode(native).
 
-if [ ! -e genetic.beam ]; then
-  erlc genetic.erl
-fi
+main([File, BestFile]) -> main([File, BestFile, 50]);
+main([File, BestFile, Base]) -> main([File, BestFile, Base, 1000]);
+main([File, BestFile, Base, Time]) -> main([File, BestFile, Base, Time, 5]);
+main([File, BestFile, Base, Time, Mutability]) ->
+  genetic:start(File, BestFile, parse_number(Base), parse_number(Time),
+    parse_number(Mutability)),
+  halt(0);
 
-erl -smp disable -noshell -run genetic main $@
+main(_) ->
+  usage(),
+  halt(0).
+
+usage() ->
+  io:format("usage: run FILE BEST_FILE [BASE_SIZE [TIME_LEFT [MUTABILITY]]]~n").
+
+parse_number(Int) when is_integer(Int) -> Int;
+parse_number(Str) when is_list(Str) -> parse_number(list_to_integer(Str));
+parse_number(Bin) when is_binary(Bin) -> parse_number(binary_to_list(Bin)).
 

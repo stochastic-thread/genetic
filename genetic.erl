@@ -1,26 +1,18 @@
 -module(genetic).
 -author("Mateusz Lenik").
--export([main/1, main/0, debug/4, inverse_fitness/1, read_instances/1,
-    read_best/1, sort_by_fitness/1, spawn_population/2]).
+-export([start/5, debug/4]).
 
 -define(INSTANCE_COUNT, 125).
 -define(VARIABLE_COUNT, 3).
 
-main() ->
-  io:put_chars("Args: FILE BEST_FILE [BASE_SIZE [TIME_LEFT [MUTABILITY]]]\n"),
-  erlang:halt(0).
-main([File, BestFile]) -> main([File, BestFile, 50]);
-main([File, BestFile, Base]) -> main([File, BestFile, Base, 1000]);
-main([File, BestFile, Base, Time]) -> main([File, BestFile, Base, Time, 5]);
-main([File, BestFile, BaseS, TimeS, MutabilityS]) ->
+start(File, BestFile, Base, Time, Mutability) ->
   random:seed(now()),
   Instances = lists:zip(read_best(BestFile), read_instances(File)),
-  Base = parse_number(BaseS),
-  Time = parse_number(TimeS),
-  Mutability = parse_number(MutabilityS),
+  Run = fun({Best, I}) ->
+      new_world(I, Base, Time, Mutability, Best)
+  end,
   io:format("| Found | Best  | Time  |~n"),
-  lists:foreach(fun({Best,I}) -> new_world(I, Base, Time, Mutability, Best) end, Instances),
-  erlang:halt(0).
+  lists:foreach(Run, Instances).
 
 % Function for performance testing
 debug(FileName, Base, Time, Mutability) ->
@@ -61,11 +53,6 @@ parse_instances(InstanceSize, Data, N, Acc) ->
 parse_string(Bin) when is_binary(Bin) -> parse_string(binary_to_list(Bin));
 parse_string(Str) when is_list(Str) ->
   [list_to_integer(X) || X <- string:tokens(Str, "\r\n\t ")].
-
-% Argument parsing function
-parse_number(Int) when is_integer(Int) -> Int;
-parse_number(Str) when is_list(Str) -> parse_number(list_to_integer(Str));
-parse_number(Bin) when is_binary(Bin) -> parse_number(binary_to_list(Bin)).
 
 % Computes the value of target function
 inverse_fitness(Permutation) ->
