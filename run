@@ -1,5 +1,6 @@
 #!/usr/bin/env escript
-%%! -smp disable -sname run -mnesia
+%%! -smp disable -sname run
+% vim: ft=erlang
 -mode(native).
 
 main([File, BestFile]) -> main([File, BestFile, 50]);
