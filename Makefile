@@ -1,5 +1,5 @@
 EC = erlc
-EFLAGS = +native
+EFLAGS = '+native +{hipe,o3}'
 
 all: *.beam
 
