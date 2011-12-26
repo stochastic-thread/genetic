@@ -164,7 +164,6 @@ evolve(Populations, TimeLeft, Pmutation, Pmeeting, _, Best) ->
           false -> {inverse_fitness(BestS) =< Best, BestS}
         end
     end, {false, hd(hd(Sorted))}, Sorted),
-  % io:format("~p~n", [length(BestSolution) == 0]),
   case FoundBest of
     false -> evolve(Sorted, TimeLeft - 1, Pmutation, Pmeeting, BestSolution, Best);
     true  -> {BestSolution, TimeLeft}
@@ -176,9 +175,16 @@ meet(Populations, Pmeeting) ->
     false -> Populations
   end.
 
-meet(Populations) ->
-  _dupa = length(Populations),
-  Populations.
+meet(Populations) when length(Populations) >= 2 ->
+  P1 = lists:nth(random:uniform(length(Populations)), Populations),
+  PopulationsButOne = lists:delete(P1, Populations),
+  P2 = lists:nth(random:uniform(length(PopulationsButOne)), PopulationsButOne),
+  PopulationsButTwo = lists:delete(P2, PopulationsButOne),
+  S = random:uniform(length(P1)),
+  {H1, T1} = lists:split(S, P1),
+  {H2, T2} = lists:split(S, P2),
+  PopulationsButTwo ++ [H1 ++ T2] ++ [H2 ++ T1];
+meet(Populations) -> Populations.
 
 % Function defining reproduction cycle
 reproduce(Generation, P) -> reproduce(Generation, [], P).
