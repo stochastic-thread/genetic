@@ -12,8 +12,10 @@ main([File, BestFile, Base, Islands, Time]) ->
 main([File, BestFile, Base, Islands, Time, Mutability]) ->
   main([File, BestFile, Base, Islands, Time, Mutability, 2]);
 main([File, BestFile, Base, Islands, Time, Mutability, Meeting]) ->
+  compile:file("genetic.erl", [native, {hipe, o3}]),
   genetic:start(File, BestFile, parse_number(Base), parse_number(Islands),
     parse_number(Time), parse_number(Mutability), parse_number(Meeting)),
+  file:delete("genetic.beam"),
   halt(0);
 
 main(_) ->
