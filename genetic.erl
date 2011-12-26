@@ -1,28 +1,28 @@
 -module(genetic).
 -author("Mateusz Lenik").
--export([start/5, debug/4]).
+-export([start/7, debug/6]).
 
 -define(INSTANCE_COUNT, 125).
 -define(VARIABLE_COUNT, 3).
 
-start(File, BestFile, Base, Time, Mutability) ->
+start(File, BestFile, Base, Islands, Time, Mutability, Meeting) ->
   random:seed(now()),
   Instances = lists:zip(read_best(BestFile), read_instances(File)),
   Run = fun({Best, I}) ->
-      new_world(I, Base, Time, Mutability, Best)
+      new_world(I, Base, Islands, Time, Mutability, Meeting, Best)
   end,
   io:format("| Found | Best  | Time  |~n"),
   lists:foreach(Run, Instances).
 
 % Function for performance testing
-debug(FileName, Base, Time, Mutability) ->
+debug(FileName, Base, Islands, Time, Mutability, Meeting) ->
   Instances = read_instances(FileName),
-  new_world(hd(Instances), Base, Time, Mutability, 0).
+  new_world(hd(Instances), Base, Islands, Time, Mutability, Meeting, 0).
 
 % Creates new world and starts genetic algorithm
-new_world(Instance, Base, Time, Mutability, Best) ->
-  Population = spawn_population(Instance, Base),
-  {BestSolution, TimeLeft} = evolve(Population, Time, Mutability, Best),
+new_world(Instance, Base, Islands, Time, Mutability, Meeting, Best) ->
+  Populations = spawn_populations(Instance, Base, Islands),
+  {BestSolution, TimeLeft} = evolve(Populations, Time, Mutability, Meeting, Best),
   io:format("|~p\t|~p\t|~p\t|~n",
     [inverse_fitness(BestSolution), Best, Time - TimeLeft]),
   Best.
@@ -129,6 +129,12 @@ probability(N) when N >= 1 ->
     false -> false
   end.
 
+% Function generates M base populations
+spawn_populations(Tasks, N, M) -> spawn_populations(Tasks, N, M, []).
+spawn_populations(_, _, 0, Acc) -> Acc;
+spawn_populations(Tasks, N, M, Acc) ->
+  spawn_populations(Tasks, N, M - 1, [spawn_population(Tasks, N)|Acc]).
+
 % Function generating base population
 spawn_population(Tasks, N) -> spawn_population(Tasks, N, []).
 spawn_population(_, 0, Acc) -> Acc;
@@ -138,22 +144,41 @@ spawn_population(Tasks, N, Acc) ->
   spawn_population(Tasks, N - 1, [New|Acc]).
 
 % Genetic algorithm itself
-evolve(Population, TimeLeft, Pmutation, Best) ->
-  Sorted = sort_by_fitness(Population),
-  evolve(Sorted, TimeLeft, Pmutation, hd(Sorted), Best).
+evolve(Populations, TimeLeft, Pmutation, Pmeeting, Best) ->
+  Sorted = lists:map(fun(P) -> sort_by_fitness(P) end, Populations),
+  evolve(Sorted, TimeLeft, Pmutation, Pmeeting, [], Best).
 
-evolve(_, 0, _, BestSolution, _) -> {BestSolution, 0};
-evolve(Population, TimeLeft, Pmutation, _, Best) ->
-  Length = length(Population) div 3,
-  {Good, Bad} = lists:split(Length, Population),
-  NewGood = reproduce(Good, Pmutation),
-  Sorted = sort_by_fitness(NewGood ++ Good ++ lists:sublist(Bad, Length)),
-  BestSolution = hd(Sorted),
-  case inverse_fitness(BestSolution) =< Best of
-    false -> evolve(Sorted, TimeLeft - 1, Pmutation, BestSolution, Best);
+evolve(_, 0, _, _, BestSolution, _) -> {BestSolution, 0};
+evolve(Populations, TimeLeft, Pmutation, Pmeeting, _, Best) ->
+  NewPopulations = meet(Populations, Pmeeting),
+  Sorted = lists:map(fun(Population) ->
+        Length = length(Population) div 3,
+        {Good, Bad} = lists:split(Length, Population),
+        NewGood = reproduce(Good, Pmutation),
+        sort_by_fitness(NewGood ++ Good ++ lists:sublist(Bad, Length))
+    end, NewPopulations),
+  {FoundBest, BestSolution} = lists:foldl(fun(Population, {Found, B}) ->
+        BestS = hd(Population),
+        case Found of
+          true ->  {true, B};
+          false -> {inverse_fitness(BestS) =< Best, BestS}
+        end
+    end, {false, hd(hd(Sorted))}, Sorted),
+  % io:format("~p~n", [length(BestSolution) == 0]),
+  case FoundBest of
+    false -> evolve(Sorted, TimeLeft - 1, Pmutation, Pmeeting, BestSolution, Best);
     true  -> {BestSolution, TimeLeft}
   end.
 
+meet(Populations, Pmeeting) ->
+  case probability(Pmeeting) of
+    true  -> meet(Populations);
+    false -> Populations
+  end.
+
+meet(Populations) ->
+  _dupa = length(Populations),
+  Populations.
 
 % Function defining reproduction cycle
 reproduce(Generation, P) -> reproduce(Generation, [], P).
