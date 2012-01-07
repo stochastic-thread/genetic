@@ -10,12 +10,10 @@ main([File, BestFile, Base, Time, Mutability]) ->
   compile:file("genetic.erl", [native, {hipe, o3}]),
   genetic:start(File, BestFile, parse_number(Base), parse_number(Time),
     parse_number(Mutability)),
-  file:delete("genetic.beam"),
-  halt(0);
+  file:delete("genetic.beam");
 
 main(_) ->
-  usage(),
-  halt(0).
+  usage().
 
 usage() ->
   io:format("usage: run FILE BEST_FILE [BASE_SIZE [TIME_LEFT [MUTABILITY]]]~n").
