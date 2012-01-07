@@ -2,7 +2,7 @@
 -author("Mateusz Lenik").
 -export([start/5, debug/4]).
 
--define(INSTANCE_COUNT, 125).
+-define(INSTANCE_COUNT, 18).
 -define(VARIABLE_COUNT, 3).
 
 start(File, BestFile, Base, Time, Mutability) ->
