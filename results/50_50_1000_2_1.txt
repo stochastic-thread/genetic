@@ -1,0 +1,23 @@
+{error_logger,{{2012,1,9},{12,22,54}},"<HiPE (v 3.8.1)> Warning: not loading native code for module ~w: it was compiled for an incompatible runtime system; please regenerate native code for this runtime system\n",[hipe_unified_loader]}
+
+=INFO REPORT==== 9-Jan-2012::12:22:54 ===
+<HiPE (v 3.8.1)> Warning: not loading native code for module hipe_unified_loader: it was compiled for an incompatible runtime system; please regenerate native code for this runtime system
+| Found | Best  | Time  |
+|2838	|1996	|1000	|
+|2961	|1996	|1000	|
+|2246	|1996	|1000	|
+|28501	|26276	|1000	|
+|29852	|26276	|1000	|
+|29563	|26276	|1000	|
+|2070	|1996	|1000	|
+|2936	|1996	|1000	|
+|2346	|1996	|1000	|
+|30116	|26276	|1000	|
+|30331	|26276	|1000	|
+|29035	|26276	|1000	|
+|2250	|1996	|1000	|
+|2505	|1996	|1000	|
+|4294	|1996	|1000	|
+|28113	|26276	|1000	|
+|29885	|26276	|1000	|
+|32308	|26276	|1000	|

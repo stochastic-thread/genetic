@@ -1,0 +1,273 @@
+\section{Wstęp} % (fold)
+  \label{sec:wstep}
+
+  Zadaniem projektowym było zaimplementowanie oraz zbadanie skuteczności
+  algorytmu ewolucyjnego dla jednoprocesorowego problemu szeregowania zadań,
+  gdzie kryterium była minimalizacja sumy ważonej czasów opóźnień.
+
+% section wstep (end)
+
+\section{Opis problemu} % (fold)
+  \label{sec:problem}
+
+  Problem szeregowania zadań na jednym procesorze z minimalizacją sumy ważonej
+  czasów opóźnień można zdefiniować w następujący sposób.
+  \vspace{1em}
+
+  Danych jest $n$ zadań, z których każde zadanie $i$ jest dostępne w chwili $t=0$
+  oraz wymaga $p_i > 0$ jednostek czasu na wykonanie, posiada oczekiwany termin
+  zakończenia $d_i > 0$ oraz priorytet $w_i > 0$. Zadanie $i$ jest opóźnione,
+  gdy czas zakończenia zadania $C_i > d_i$, a miarą opóźnienia zadania $i$
+  jest $T_i = \max(0, C_i - d_i)$. Należy znaleźć taką kolejność wykonywania
+  zadań, aby zminimalizować kryterium $TWT = \sum_{i = 1}^{n} w_i \cdot T_i$.
+
+% section problem (end)
+
+\section{Opis algorytmu} % (fold)
+  \label{sec:algorytm}
+
+  Algorytm genetyczny należy do grupy algorytmów heurystycznych i jest oparty
+  na zjawisku ewolucji biologicznej. Algorytmy te często wykorzystuje się do
+  rozwiązywania problemów NP-trudnych. Zwykle robi się tak ze względu na to, że
+  czas odnalezienie rozwiązania optymalnego jest zbyt duży, a wystarczająco
+  dobrym może być rozwiązanie przybliżone.
+  \vspace{1em}
+
+  Działanie algorytmu można podzielić na następujące etapy.
+  \begin{enumerate}
+    \item Generowanie populacji początkowej;
+    \item \label{start} Wybierz elitę na podstawie funkcji dopasowania;
+    \item Stwórz nowe osobniki na podstawie selekcji rodziców z elity;
+    \item Z określonym prawdopodobieństwem zmutuj niektóre z nowych osobników;
+    \item Jeśli nowe osobniki nie są tak liczne, jak populacja początkowa,
+          dołącz elitę do nowej populacji;
+    \item Jeśli nie przekroczono zadanej liczby kroków, wróć do
+          punktu~\ref{start}.
+  \end{enumerate}
+  \vspace{1em}
+
+  Warto zwrócić uwagę, że osobnik należący do elity w algorytmie genetycznym
+  może przetrwać bardzo wiele pokoleń, co w rzeczywistości nie jest możliwe.
+  \vspace{1em}
+
+  Wybór populacji początkowej został zrealizowany poprzez generowanie losowych
+  permutacji zadań, a wybór rodziców uwarunkowany jest wynikiem funkcji
+  przystosowania osobników.
+  \vspace{1em}
+
+  Jako algorytm mutacji użyty został losowy ruch typu invert. Zajście mutacji
+  jest opisane pewnym, małym, prawdopodobieństwem i ma zachodzić niezwykle
+  rzadko.
+  \vspace{1em}
+
+  Do krzyżowania osobników wykorzystany został operator PMX, który działa w
+  następujący sposób.
+  \begin{enumerate}
+    \item Wybierz dwa różne punkty krzyżowania od $1$ do $n$, gdzie $n$ jest
+          długością permutacji;
+    \item Utwórz listę dwuelementowych wektorów permutacji na podstawie list
+          wyciętych z permutacji rodziców;
+    \item W każdym z rodziców zamień wszystkie elementy występujące na pozycji
+          pierwszej w wektorze na elementy występujące na pozycji drugiej i
+          odwrotnie.
+  \end{enumerate}
+
+% section algorytm (end)
+
+\section{Implementacja} % (fold)
+  \label{sec:impl}
+
+  Algorytm zaimplementowany został w języku Erlang. Warto zwrócić uwagę, że
+  język ten nie posiada takich konstrukcji jak pętle, a zmienne po przypisaniu
+  do nich wartości nie mogą zostać zmodyfikowane. Komunikacja między procesami
+  opiera się na wysyłaniu wiadomości, co jest to zaletą w przypadku,
+  gdy język ten używany jest w aplikacjach wielowątkowych, gdyż w wielu
+  przypadkach pozwala to na uniknięcie blokad.
+  \vspace{1em}
+
+  Funkcja dopasowania została zaimplementowana w następujący sposób.
+  Funkcja \texttt{lists:foldl} wykonuje funkcję podaną jako pierwszy argument na
+  liście podanej jako ostatni argument i zwraca wartość akumulatora, którego
+  początkowy stan jest przekazany jako drugi argument. Pojedyncze zadanie jest
+  reprezentowane jako krotka w formacie \texttt{\{Pj, Wj, Dj\}}. Funkcja
+  dopasowania jest jedyną funkcją, która wymusza taki format zapisu danych, a
+  więc zmieniając tę jedną funkcję można przystosować algorytm do rozwiązywania
+  innego problemu.
+  \singlespacing
+  \begin{center}
+  \begin{minted}[gobble=4]{erlang}
+    fitness(Permutation) ->
+      {_, Result} = lists:foldl(fun compute_fitness/2, {0, 0}, Permutation),
+      Result.
+
+    compute_fitness({Pj, Wj, Dj}, {Time, Acc}) ->
+      {Time + Pj, Wj*max(0, Time + Pj - Dj) + Acc}.
+  \end{minted}
+  \end{center}
+  \onehalfspacing
+  \vspace{1em}
+
+  Wybór pierwszej populacji zrealizowany został algorytmem losowym. Funkcja ta
+  została zaimplementowana przy użyciu rekurencji ogonowej. Każdy osobnik w
+  populacji reprezentuje określona permutacja zadań zapisana jako lista. Funkcja
+  \texttt{spawn\_population} zwraca listę list, czyli listę osobników. W
+  implementacji widać również wykorzystanie jednej z cech języków funkcyjnych,
+  czyli dopasowywanie do wzorca, dzięki czemu nie zostało użyte żadne wyrażenie
+  warunkowe.
+  \singlespacing
+  \begin{center}
+  \begin{minted}[gobble=4]{erlang}
+    spawn_population(Tasks, N) -> spawn_population(Tasks, N, []).
+    spawn_population(_, 0, Acc) -> Acc;
+    spawn_population(Tasks, N, Acc) ->
+      Permutation = lists:keysort(2, [{X, random:uniform()} || X <- Tasks]),
+      New = [X || {X,_} <- Permutation],
+      spawn_population(Tasks, N - 1, [New|Acc]).
+  \end{minted}
+  \end{center}
+  \onehalfspacing
+  \vspace{1em}
+
+  Implementacja algorytmu PMX została podzielona na trzy części. W pierwszej z
+  nich wybierane są punkty krzyżowania, w drugiej generowane są wektory
+  wykorzystywane przy krzyżowaniu, a w trzeciej wykonywana jest sama operacja
+  krzyżowania.
+  \singlespacing
+  \begin{center}
+  \begin{minted}[gobble=4]{erlang}
+    breed(Parents = {P1, P2}, ProbabilityOfMutation) ->
+      S1 = random:uniform(length(P1)),
+      S2 = random:uniform(length(P2)),
+      case S1 > S2 of
+        true  -> breed(Parents, S2, S1, ProbabilityOfMutation);
+        false -> breed(Parents, S1, S2, ProbabilityOfMutation)
+      end.
+
+    breed(Parents = {P1, P2}, S1, S2, P) ->
+      V = breed_vector(Parents, S1, S2),
+      C1 = lists:map(fun(X) -> lists:foldl(fun breed_swap/2, X, V) end, P1),
+      C2 = lists:map(fun(X) -> lists:foldl(fun breed_swap/2, X, V) end, P2),
+      {mutate(C1, P), mutate(C2, P)}.
+
+    breed_swap({Gene, NewGene}, Gene) -> NewGene;
+    breed_swap({Gene, NewGene}, NewGene) -> Gene;
+    breed_swap({_, _}, Gene) -> Gene.
+
+    breed_vector({Parent1, Parent2}, S1, S2) ->
+      L1 = lists:sublist(Parent1, S1, S2 - S1),
+      L2 = lists:sublist(Parent2, S1, S2 - S1),
+      lists:zip(L1, L2).
+  \end{minted}
+  \end{center}
+  \onehalfspacing
+  \vspace{1em}
+
+  Za główną pętlę algorytmu odpowiada funkcja \texttt{evolve}. To w niej
+  dokonywany jest podział populacji na elitę oraz wybranie rodziców dla nowych
+  pokoleń. Dodatkowym parametrem jest również znane rozwiązanie optymalne i
+  jeśli zostanie ono osiągnięte wcześniej, algorytm przerywa swoje działanie.
+  \singlespacing
+  \begin{center}
+  \begin{minted}[gobble=4]{erlang}
+
+    evolve(Population, TimeLeft, Pmutation, Best) ->
+      Sorted = sort_by_fitness(Population),
+      evolve(Sorted, TimeLeft, Pmutation, hd(Sorted), Best).
+
+    evolve(_, 0, _, BestSolution, _) -> {BestSolution, 0};
+    evolve(Population, TimeLeft, Pmutation, _, Best) ->
+      Length = length(Population) div 3,
+      {Good, Bad} = lists:split(Length, Population),
+      NewGood = reproduce(Good, Pmutation),
+      Sorted = sort_by_fitness(NewGood ++ Good ++ lists:sublist(Bad, Length)),
+      BestSolution = hd(Sorted),
+      case fitness(BestSolution) =< Best of
+        false -> evolve(Sorted, TimeLeft - 1, Pmutation, BestSolution, Best);
+        true  -> {BestSolution, TimeLeft}
+      end.
+  \end{minted}
+  \end{center}
+  \onehalfspacing
+  \vspace{1em}
+
+  Tworzenie nowych osobników populacji odbywa się w funkcji \texttt{reproduce}.
+  Wywołuje ona funkcję \texttt{breed} dla każdej z par rodziców.
+  \singlespacing
+  \begin{center}
+  \begin{minted}[gobble=4]{erlang}
+    reproduce(Generation, P) -> reproduce(Generation, [], P).
+    reproduce([], NewGeneration, _) -> NewGeneration;
+    reproduce([P1, P2|Rest], NewGeneration, P) ->
+      {C1, C2} = breed({P1, P2}, P),
+      reproduce(Rest, [C1, C2|NewGeneration], P);
+    reproduce([Last], NewGeneration, P) ->
+      reproduce([], [Last|NewGeneration], P).
+  \end{minted}
+  \end{center}
+  \onehalfspacing
+  \vspace{1em}
+
+  Za mutacje odpowiada funkcja \texttt{mutate}. Została zaimplementowana tak,
+  aby osobnik był modyfikowany tylko z pewnym prawdopodobieństwem
+  $(\frac{1}{2})^\textrm{P}$ w zależności od przekazywanego parametru.
+  \singlespacing
+  \begin{center}
+  \begin{minted}[gobble=4]{erlang}
+    mutate(Permutation, P) ->
+      case probability(P) of
+        true  -> mutate(Permutation);
+        false -> Permutation
+      end.
+
+    mutate(Permutation) ->
+      S1 = random:uniform(length(Permutation)),
+      S2 = random:uniform(length(Permutation)),
+      case S1 > S2 of
+        true  -> mutate(Permutation, S2, S1);
+        false -> mutate(Permutation, S1, S2)
+      end.
+
+    mutate(Permutation, S1, S2) ->
+      {Head, Tail} = lists:split(S1, Permutation),
+      {Middle, End} = lists:split(S2 - S1, Tail),
+      Head ++ lists:reverse(Middle) ++ End.
+  \end{minted}
+  \end{center}
+  \onehalfspacing
+  \vspace{1em}
+
+  Algorytm zwraca najlepsze znalezione rozwiązanie oraz liczbę generacji, która
+  pozostała, która jest różna od zera, jeśli rozwiązanie optymalne udało znaleźć
+  się wcześniej.
+% section impl (end)
+
+\section{Testy i wyniki} % (fold)
+  \label{sec:testy}
+
+  W programie istnieje możliwość regulowania takich parametrów, jak rozmiar
+  populacji, ilość kroków oraz prawdopodobieństwo mutacji. Testy zostały
+  przeprowadzone dla populacji o wielkościach 50, 100 oraz 200 osobników oraz
+  dla 1000, 5000 oraz 10000 kroków. Jako ostatni parametr została przekazana
+  liczba 4, co oznacza, że prawdopodobieństwo mutacji wynosiło $\frac{1}{16}$.
+  \vspace{1em}
+
+  Testy zostały przeprowadzone na serwerze wyposażonym w procesor Intel Xeon
+  L5520 pracujący z częstotliwością 2.27GHz oraz 512MB pamięci RAM. Program
+  został uruchamiany przez wirtualną maszynę Erlanga w wersji R14B.
+
+% section testy (end)
+
+\section{Wnioski} % (fold)
+  \label{sec:wnioski}
+
+
+% section wnioski (end)
+
+\appendix
+\section{Bibliografia} % (fold)
+  \label{sec:biblio}
+  \begin{enumerate}
+    \item \texttt{ftp://sith.ict.pwr.wroc.pl/Informatyka/PEA/ProjektPEA\_11\_12.pdf}
+  \end{enumerate}
+
+% section biblio (end)

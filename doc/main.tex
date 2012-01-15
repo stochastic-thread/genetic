@@ -1,0 +1,51 @@
+\documentclass[wide,a4paper,12pt]{mwart}
+% \documentclass[wide,a4paper,12pt,titlepage]{mwart}
+\usepackage{polski}
+\usepackage{fontspec}
+\usepackage{setspace}
+\usepackage[top=2.75cm,bottom=2.50cm,left=2.50cm,right=2.50cm]{geometry}
+
+% Pick one
+\setmonofont[Scale=0.8]{Monaco}
+%\setmonofont[Scale=0.8]{Menlo Regular}
+
+% Pick one
+%\setmainfont{Gill Sans}
+%\setmainfont{Palatino}
+%\setmainfont{Helvetica Neue}
+% \setmainfont{Hoefler Text}
+%\setmainfont{Verdana}
+
+% Put packages to use here
+\usepackage{minted}
+\usepackage{graphicx}
+\usepackage{pdflscape}
+
+% Document settings
+\setlength{\parindent}{0in}
+\onehalfspacing
+
+% Itemization settings
+\renewcommand{\labelitemi}{$\diamond$}
+
+% fill these in
+\title{Algorytm genetyczny\\\small{(ewolucyjny)}}
+\author{Mateusz Lenik\\Łukasz Łęczycki}
+\date{\today}
+
+% Include title page template
+\include{titlepage}
+
+\begin{document}
+% Uncomment to generate titlepage
+\maketitle
+
+% Uncomment to generate TOC
+% \tableofcontents
+% \newpage
+
+% Put your document here
+\include{contents}
+
+\end{document}
+
