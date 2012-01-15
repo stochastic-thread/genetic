@@ -24,7 +24,7 @@ new_world(Instance, Base, Time, Mutability, Best) ->
   Population = spawn_population(Instance, Base),
   {BestSolution, TimeLeft} = evolve(Population, Time, Mutability, Best),
   io:format("|~p\t|~p\t|~p\t|~n",
-    [inverse_fitness(BestSolution), Best, Time - TimeLeft]),
+    [fitness(BestSolution), Best, Time - TimeLeft]),
   Best.
 
 % Function reading input files
@@ -55,21 +55,21 @@ parse_string(Str) when is_list(Str) ->
   [list_to_integer(X) || X <- string:tokens(Str, "\r\n\t ")].
 
 % Computes the value of target function
-inverse_fitness(Permutation) ->
-  {_, Result} = lists:foldl(fun compute_inverse_fitness/2, {0, 0}, Permutation),
+fitness(Permutation) ->
+  {_, Result} = lists:foldl(fun compute_fitness/2, {0, 0}, Permutation),
   Result.
 
-compute_inverse_fitness({Pj, Wj, Dj}, {Time, Acc}) ->
+compute_fitness({Pj, Wj, Dj}, {Time, Acc}) ->
   {Time + Pj, Wj*max(0, Time + Pj - Dj) + Acc}.
 
 
-% Sorts the list by inverse_fitness
+% Sorts the list by fitness
 sort_by_fitness(Population) ->
   lists:sort(fun sorting_function/2, Population).
 
 % Sorting procedure for sorting by fitness
 sorting_function(A, B) ->
-  inverse_fitness(A) =< inverse_fitness(B).
+  fitness(A) =< fitness(B).
 
 % Mutation procedure
 % Implemented using sequence swap
@@ -149,7 +149,7 @@ evolve(Population, TimeLeft, Pmutation, _, Best) ->
   NewGood = reproduce(Good, Pmutation),
   Sorted = sort_by_fitness(NewGood ++ Good ++ lists:sublist(Bad, Length)),
   BestSolution = hd(Sorted),
-  case inverse_fitness(BestSolution) =< Best of
+  case fitness(BestSolution) =< Best of
     false -> evolve(Sorted, TimeLeft - 1, Pmutation, BestSolution, Best);
     true  -> {BestSolution, TimeLeft}
   end.
