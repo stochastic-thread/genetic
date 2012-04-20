@@ -8,6 +8,5 @@ This is my first project in Erlang, so it may be a bit lame.
 
 Compile `genetic` module and run `run` script.
 
-    make
     ./run
 
